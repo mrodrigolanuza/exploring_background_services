@@ -15,22 +15,25 @@ namespace exploring_background_services.Application
      */
     public class Worker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<Worker> logger;
+        private readonly int periodTimeInMilisecs;
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(ILogger<Worker> logger, IConfiguration configuration)
         {
-            _logger = logger;
+            this.logger = logger;
+            periodTimeInMilisecs = configuration.GetValue<int>("Worker:TimePeriodInMilisecs");
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                if (_logger.IsEnabled(LogLevel.Information))
+                if (logger.IsEnabled(LogLevel.Information))
                 {
-                    _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                    logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
-                await Task.Delay(1000, stoppingToken);
+
+                await Task.Delay(periodTimeInMilisecs, stoppingToken);
             }
         }
     }

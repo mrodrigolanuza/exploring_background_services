@@ -9,14 +9,14 @@ var builder = Host.CreateApplicationBuilder(args);
 //-Iniciar hosted services en paralelo (por defecto secuencialmente)
 //-Finalizar hosted services en paralelo (por defecto secuenicalmente)
 //-Comportamiento ante una excepción en un hosted service (por defecto finalizar el Host completo)
-builder.Services.Configure<HostOptions>(o => {
+builder.Services.Configure<HostOptions>(o =>
+{
     o.StartupTimeout = TimeSpan.FromSeconds(5);
     o.ServicesStartConcurrently = true;
 });
 
 //Registrar en el host los servicios hospedados a ejecutar (por defecto se ejecutan en según el orden indicado al registrarlos)
 builder.Services.AddHostedService<Worker>();
-
 var host = builder.Build();
 
 //Zona para realizar tareas previas a la ejecución (configuraciones, inicializaciones, acceso base de datos..)
