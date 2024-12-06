@@ -25,11 +25,7 @@ namespace exploring_background_services.Application
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                if (logger.IsEnabled(LogLevel.Information))
-                {
-                    logger.LogInformation("Worker A running at: {time}", DateTimeOffset.Now);
-                }
-
+                logger.LogDebug("Worker A running at: {time}", DateTimeOffset.Now);
                 await Task.Delay(workerSettings.AutoExecutionDelay, stoppingToken);
             }
         }
