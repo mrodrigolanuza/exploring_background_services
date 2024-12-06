@@ -1,4 +1,5 @@
 using exploring_background_services.Application;
+using exploring_background_services.Configuration;
 
 //Host for para albergar tareas "long-running" de tipo Aplicación.
 var builder = Host.CreateApplicationBuilder(args);
@@ -11,9 +12,12 @@ var builder = Host.CreateApplicationBuilder(args);
 //-Comportamiento ante una excepción en un hosted service (por defecto finalizar el Host completo)
 builder.Services.Configure<HostOptions>(o =>
 {
-    o.StartupTimeout = TimeSpan.FromSeconds(5);
-    o.ServicesStartConcurrently = true;
+    o.StartupTimeout = Timeout.InfiniteTimeSpan;
+    o.ServicesStartConcurrently = false;
 });
+
+//Opciones de configuración para el worker mediante DI
+builder.Services.Configure<WorkerSettings>(builder.Configuration.GetSection(key: nameof(WorkerSettings)));
 
 //Registrar en el host los servicios hospedados a ejecutar (por defecto se ejecutan en según el orden indicado al registrarlos)
 builder.Services.AddHostedService<Worker>();

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using exploring_background_services.Configuration;
+using Microsoft.Extensions.Options;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,12 +18,12 @@ namespace exploring_background_services.Application
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> logger;
-        private readonly int periodTimeInMilisecs;
+        private readonly WorkerSettings workerSettings;
 
-        public Worker(ILogger<Worker> logger, IConfiguration configuration)
+        public Worker(ILogger<Worker> logger, IOptions<WorkerSettings> options)
         {
             this.logger = logger;
-            periodTimeInMilisecs = configuration.GetValue<int>("Worker:TimePeriodInMilisecs");
+            workerSettings = options.Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,7 +35,7 @@ namespace exploring_background_services.Application
                     logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
 
-                await Task.Delay(periodTimeInMilisecs, stoppingToken);
+                await Task.Delay(workerSettings.AutoExecutionDelay, stoppingToken);
             }
         }
     }
