@@ -1,10 +1,5 @@
 ﻿using exploring_background_services.Configuration;
 using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace exploring_background_services.Application
 {
@@ -15,12 +10,12 @@ namespace exploring_background_services.Application
      * -[]Leer de bbdd
      * -[]Enviar a App.Insigts
      */
-    public class Worker : BackgroundService
+    public class Worker_A : BackgroundService
     {
-        private readonly ILogger<Worker> logger;
-        private readonly WorkerSettings workerSettings;
+        private readonly ILogger<Worker_A> logger;
+        private readonly Worker_A_Settings workerSettings;
 
-        public Worker(ILogger<Worker> logger, IOptions<WorkerSettings> options)
+        public Worker_A(ILogger<Worker_A> logger, IOptions<Worker_A_Settings> options)
         {
             this.logger = logger;
             workerSettings = options.Value;
@@ -32,7 +27,7 @@ namespace exploring_background_services.Application
             {
                 if (logger.IsEnabled(LogLevel.Information))
                 {
-                    logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                    logger.LogInformation("Worker A running at: {time}", DateTimeOffset.Now);
                 }
 
                 await Task.Delay(workerSettings.AutoExecutionDelay, stoppingToken);
