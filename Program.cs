@@ -1,39 +1,52 @@
 using exploring_background_services.Application;
 using exploring_background_services.Configuration;
 
-//Host for para albergar tareas "long-running" de tipo Aplicación.
+EnsureLogDirectory();
+
 var builder = Host.CreateApplicationBuilder(args);
 
-//Opciones de configuración del Host (HOstOptions)
-//-Timeout de inicio de hosted servicies (infinito por defecto)
-//-Timeout de finalización de hosted services (30 segundos por defecto) > Tiempo que tienen los hosted services cuando reciben la señal (cancellation token) de finalizar "gracefully".
-//-Iniciar hosted services en paralelo (por defecto secuencialmente)
-//-Finalizar hosted services en paralelo (por defecto secuenicalmente)
-//-Comportamiento ante una excepción en un hosted service (por defecto finalizar el Host completo)
-builder.Services.Configure<HostOptions>(o =>
-{
-    o.StartupTimeout = Timeout.InfiniteTimeSpan;
-    o.ServicesStartConcurrently = false;
-});
+ConfigureLogging(builder);
+ConfigureHostOptions(builder);
+ConfigureWorkers(builder);
 
-//Opciones de configuración para el worker mediante DI
-builder.Services.Configure<Worker_A_Settings>(builder.Configuration.GetSection(key: nameof(Worker_A_Settings)));
-builder.Services.Configure<Worker_B_Settings>(builder.Configuration.GetSection(key: nameof(Worker_B_Settings)));
-
-//Registrar en el host los servicios hospedados a ejecutar (por defecto se ejecutan en según el orden indicado al registrarlos)
-builder.Services.AddHostedService<Worker_A>();
-builder.Services.AddHostedService<Worker_B>();
 var host = builder.Build();
 
-//Crear el logger a través del contenedor de dependencias
-var logger = host.Services.GetRequiredService<ILogger<Program>>();
+ConfigureLifetimeEvents(host);
 
-//Zona para realizar tareas previas a la ejecución (configuraciones, inicializaciones, acceso base de datos..)
-//Para ello podemo usar el contenedor de dependencias out-of-the-box.
-//Ejemplo de obtención de un servicio: Registrar acciones relacionadas con eventos del ciclo de vida.
-var hostAppLifeTime = host.Services.GetRequiredService<IHostApplicationLifetime>();
-hostAppLifeTime.ApplicationStarted.Register(() => logger.LogInformation("HOST INICADO!"));
-hostAppLifeTime.ApplicationStopped.Register(() => logger.LogInformation("HOST FINALIZADO!"));
+await RunHost(host);
 
-//Iniciar los Hosted Services (long-running tasks) que incluye.
-await host.RunAsync();
+void EnsureLogDirectory() => Directory.CreateDirectory("Logs");
+
+void ConfigureLogging(HostApplicationBuilder builder)
+{
+    builder.Logging.AddConsole();
+}
+
+void ConfigureHostOptions(HostApplicationBuilder builder)
+{
+    builder.Services.Configure<HostOptions>(o =>
+    {
+        o.StartupTimeout = Timeout.InfiniteTimeSpan;
+        o.ServicesStartConcurrently = false;
+    });
+}
+
+void ConfigureWorkers(HostApplicationBuilder builder)
+{
+    builder.Services.Configure<Worker_A_Settings>(builder.Configuration.GetSection(nameof(Worker_A_Settings)));
+    builder.Services.Configure<Worker_B_Settings>(builder.Configuration.GetSection(nameof(Worker_B_Settings)));
+
+    builder.Services.AddHostedService<Worker_A>();
+    builder.Services.AddHostedService<Worker_B>();
+}
+
+void ConfigureLifetimeEvents(IHost host)
+{
+    var logger = host.Services.GetRequiredService<ILogger<Program>>();
+    var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+    lifetime.ApplicationStarted.Register(() => logger.LogInformation("HOST INICADO!"));
+    lifetime.ApplicationStopped.Register(() => logger.LogInformation("HOST FINALIZADO!"));
+}
+
+Task RunHost(IHost host) => host.RunAsync();
+
