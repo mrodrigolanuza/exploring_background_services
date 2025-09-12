@@ -2,24 +2,18 @@ using exploring_background_services.Application;
 using exploring_background_services.Configuration;
 
 EnsureLogDirectory();
-
-var builder = Host.CreateApplicationBuilder(args);
-
-ConfigureLogging(builder);
+var builder = CreateApplicationBuilder(args);
 ConfigureHostOptions(builder);
+ConfigureLogging(builder);
 ConfigureWorkers(builder);
-
 var host = builder.Build();
-
 ConfigureLifetimeEvents(host);
-
 await RunHost(host);
-
 void EnsureLogDirectory() => Directory.CreateDirectory("Logs");
 
-void ConfigureLogging(HostApplicationBuilder builder)
+HostApplicationBuilder CreateApplicationBuilder(string[] strings)
 {
-    builder.Logging.AddConsole();
+    return Host.CreateApplicationBuilder(strings);
 }
 
 void ConfigureHostOptions(HostApplicationBuilder builder)
@@ -29,6 +23,11 @@ void ConfigureHostOptions(HostApplicationBuilder builder)
         o.StartupTimeout = Timeout.InfiniteTimeSpan;
         o.ServicesStartConcurrently = false;
     });
+}
+
+void ConfigureLogging(HostApplicationBuilder builder)
+{
+    builder.Logging.AddConsole();
 }
 
 void ConfigureWorkers(HostApplicationBuilder builder)
