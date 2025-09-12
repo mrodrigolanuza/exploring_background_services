@@ -1,23 +1,28 @@
 using exploring_background_services.Application;
 using exploring_background_services.Configuration;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Filters;
 
-var builder = CreateApplicationBuilder(args);
+var builder = CreateHostBuilder(args);
 ConfigureHostOptions(builder);
-ConfigureWorkers(builder);
-EnsureLogDirectories(builder.Configuration);
-ConfigureLogging(builder);
+ObtainWorkerSettingsFromConfigFile(builder);
+ConfigureWorkerLogs(builder);
+AddWorkersToHost(builder);
 var host = builder.Build();
-ConfigureLifetimeEvents(host);
+ConfigureHostLifetimeEvents(host);
 await RunHost(host);
 
-HostApplicationBuilder CreateApplicationBuilder(string[] strings)
+HostApplicationBuilder CreateHostBuilder(string[] strings)
 {
     return Host.CreateApplicationBuilder(strings);
+}
+
+void ObtainWorkerSettingsFromConfigFile(HostApplicationBuilder builder)
+{
+    //Configure the settings for Workers from the appsettings.json file
+    builder.Services.Configure<Worker_A_Settings>(builder.Configuration.GetSection(nameof(Worker_A_Settings)));
+    builder.Services.Configure<Worker_B_Settings>(builder.Configuration.GetSection(nameof(Worker_B_Settings)));
 }
 
 void ConfigureHostOptions(HostApplicationBuilder builder)
@@ -29,64 +34,53 @@ void ConfigureHostOptions(HostApplicationBuilder builder)
     });
 }
 
-void ConfigureLogging(HostApplicationBuilder builder)
+void ConfigureWorkerLogs(HostApplicationBuilder builder)
 {
-    builder.Host.UseSerilog((context, services, configuration) =>
-    {
-        var workerA = services.GetRequiredService<IOptions<Worker_A_Settings>>().Value;
-        var workerB = services.GetRequiredService<IOptions<Worker_B_Settings>>().Value;
-
-        var workerAFile = Path.Combine(workerA.LogFilePath, "worker_A-.log");
-        var workerBFile = Path.Combine(workerB.LogFilePath, "worker_B-.log");
-
-        configuration.WriteTo.Console();
-
-        configuration.WriteTo.Logger(lc =>
-            lc.Filter.ByIncludingOnly(Matching.FromSource<Worker_A>())
-              .WriteTo.File(workerAFile,
-                            rollingInterval: ParseRollingInterval(workerA.RollingInterval),
-                            restrictedToMinimumLevel: ConvertLogLevel(workerA.LogLevel)));
-
-        configuration.WriteTo.Logger(lc =>
-            lc.Filter.ByIncludingOnly(Matching.FromSource<Worker_B>())
-              .WriteTo.File(workerBFile,
-                            rollingInterval: ParseRollingInterval(workerB.RollingInterval),
-                            restrictedToMinimumLevel: ConvertLogLevel(workerB.LogLevel)));
-    });
+    //Logger: Worker_A
+    var workerA = builder.Services.BuildServiceProvider().GetRequiredService<IOptions<Worker_A_Settings>>().Value;
+    var workerALogger = new LoggerConfiguration()
+        .MinimumLevel.Verbose()
+        .WriteTo.Console(restrictedToMinimumLevel: ConvertLogLevel(workerA.LogLevel))   //Consola
+        .WriteTo.File(                                                                  //Fichero
+            Path.Combine(workerA.LogFilePath, "worker_A-.log"), 
+            rollingInterval: ParseRollingInterval(workerA.RollingInterval),
+            restrictedToMinimumLevel: ConvertLogLevel(workerA.LogLevel))
+        .Filter.ByIncludingOnly(Matching.FromSource<Worker_A>())
+        .CreateLogger();
+    
+    //Logger: Worker_B
+    var workerB = builder.Services.BuildServiceProvider().GetRequiredService<IOptions<Worker_B_Settings>>().Value;
+    var workerBLogger = new LoggerConfiguration()
+        .MinimumLevel.Verbose()
+        .WriteTo.Console(restrictedToMinimumLevel: ConvertLogLevel(workerB.LogLevel))   //Consola
+        .WriteTo.File(                                                                  //Fichero
+            Path.Combine(workerB.LogFilePath, "worker_B-.log"), 
+            rollingInterval: ParseRollingInterval(workerB.RollingInterval),
+            restrictedToMinimumLevel: ConvertLogLevel(workerB.LogLevel))
+        .Filter.ByIncludingOnly(Matching.FromSource<Worker_B>())
+        .CreateLogger();
+    
+    builder.Logging
+        .ClearProviders()
+        .AddSerilog(workerALogger)
+        .AddSerilog(workerBLogger);
 }
 
-void ConfigureWorkers(HostApplicationBuilder builder)
+void AddWorkersToHost(HostApplicationBuilder builder)
 {
-    builder.Services.Configure<Worker_A_Settings>(builder.Configuration.GetSection(nameof(Worker_A_Settings)));
-    builder.Services.Configure<Worker_B_Settings>(builder.Configuration.GetSection(nameof(Worker_B_Settings)));
-
     builder.Services.AddHostedService<Worker_A>();
     builder.Services.AddHostedService<Worker_B>();
 }
 
-void ConfigureLifetimeEvents(IHost host)
+void ConfigureHostLifetimeEvents(IHost host)
 {
     var logger = host.Services.GetRequiredService<ILogger<Program>>();
     var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
-    lifetime.ApplicationStarted.Register(() => logger.LogInformation("HOST INICADO!"));
-    lifetime.ApplicationStopped.Register(() => logger.LogInformation("HOST FINALIZADO!"));
+    lifetime.ApplicationStarted.Register(() => logger.LogInformation("HOST STARTED: WORKERS RUNNING!"));
+    lifetime.ApplicationStopped.Register(() => logger.LogInformation("HOST FINISHED: WORKERS STOPPED!"));
 }
 
 Task RunHost(IHost host) => host.RunAsync();
-
-void EnsureLogDirectories(IConfiguration configuration)
-{
-    var workerA = configuration.GetSection(nameof(Worker_A_Settings)).Get<Worker_A_Settings>();
-    var workerB = configuration.GetSection(nameof(Worker_B_Settings)).Get<Worker_B_Settings>();
-
-    foreach (var path in new[] { workerA?.LogFilePath, workerB?.LogFilePath })
-    {
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            Directory.CreateDirectory(path);
-        }
-    }
-}
 
 Serilog.Events.LogEventLevel ConvertLogLevel(LogLevel level) => level switch
 {
